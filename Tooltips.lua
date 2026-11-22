@@ -71,12 +71,15 @@ function BitesCookBook:AddIngredientRecipes(tooltip, itemLink)
 		if self:IsRecipeInRange(recipeID) then
 			local recipe = self.Recipes[recipeID]
 			local craftableName, _, _, _, _, _, _, _, craftableIcon = GetItemInfo(recipeID)
+			local cachedBuff = BitesCookBook_Cache and BitesCookBook_Cache.Buffs and BitesCookBook_Cache.Buffs[recipeID]
 
-			if not craftableName then
+			if not craftableName and cachedBuff and cachedBuff.ItemName then
+				craftableName = cachedBuff.ItemName
 				if self.Tooltip then
 					self.Tooltip:ClearLines()
 					self.Tooltip:SetHyperlink("item:" .. recipeID .. ":0:0:0")
 				end
+			end
 			else
 				local craftableColor = self:GetCraftableColor(recipeID)
 
