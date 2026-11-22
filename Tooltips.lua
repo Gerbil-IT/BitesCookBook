@@ -54,7 +54,7 @@ local function addIcon(tooltip, iconTexture, xOffset)
 end
 
 function BitesCookBook:AddIngredientRecipes(tooltip, itemLink)
-	-- Hide icons from last run
+-- Hide icons from last run
 	hideIcons()
 
 	--- Shows all available recipes for that ingredient.
@@ -65,21 +65,22 @@ function BitesCookBook:AddIngredientRecipes(tooltip, itemLink)
 
 	if not self.CraftablesForReagent[itemID] then return end
 
+	if self.CookingSkillRank == nil then
+		self.CookingSkillRank = self:GetSkillLevel("Cooking") or 0
+	end
+
 	local recipes = {}
 	-- Cycle through all recipes that use the ingredient to create the tooltip.
 	for _, recipeID in ipairs(self.CraftablesForReagent[itemID]) do
 		if self:IsRecipeInRange(recipeID) then
 			local recipe = self.Recipes[recipeID]
 			local craftableName, _, _, _, _, _, _, _, craftableIcon = GetItemInfo(recipeID)
-			local cachedBuff = BitesCookBook_Cache and BitesCookBook_Cache.Buffs and BitesCookBook_Cache.Buffs[recipeID]
 
-			if not craftableName and cachedBuff and cachedBuff.ItemName then
-				craftableName = cachedBuff.ItemName
+			if not craftableName then
 				if self.Tooltip then
 					self.Tooltip:ClearLines()
 					self.Tooltip:SetHyperlink("item:" .. recipeID .. ":0:0:0")
 				end
-			end
 			else
 				local craftableColor = self:GetCraftableColor(recipeID)
 
@@ -130,7 +131,9 @@ function BitesCookBook:AddIngredientRecipes(tooltip, itemLink)
 		end
 	end
 
-	tooltip:Show()
+	if tooltip:IsShown() then
+		tooltip:Show()
+	end
 end
 
 
@@ -174,7 +177,6 @@ function BitesCookBook:HookTooltips()
 	-- Hook target trade tooltip
 	hooksecurefunc(GameTooltip, "SetTradeTargetItem", function(self, index)
 		BitesCookBook:AddIngredientRecipes(GameTooltip, GetTradeTargetItemLink(index))
-		BitesCookBook:AddIngredientRecipes(GameTooltip)
 	end)
 
 	-- Hook inbox items
@@ -246,8 +248,8 @@ function BitesCookBook:CheckModifierKey()
 end
 
 function BitesCookBook:IsRecipeInRange(RecipeId)
-	-- If the user has the modifier key set to "Unlock filters", we should always return true.
-	if self.Options.HasModifier == 1 and self.ModifierKeys[self.Options.ModifierKey]() == not ModifierValue then
+-- If the user has the modifier key set to "Unlock filters", we should always return true.
+	if self.Options.HasModifier == 1 and self.ModifierKeys[self.Options.ModifierKey]() then
 		return true
 	end
 
