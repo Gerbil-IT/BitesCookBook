@@ -131,7 +131,7 @@ function BitesCookBook:SetBuff(recipe)
 	end
 end
 
-local CACHE_DELAY = 0.50
+local CACHE_DELAY = 5
 
 function BitesCookBook:BuildCacheQueue()
 	local queue = {}
