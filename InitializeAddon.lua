@@ -199,8 +199,9 @@ end
 function BitesCookBook:StartCacheItems()
 	local queue, cachedCount, total = self:BuildCacheQueue()
 
-	-- All is already in SavedVariables/ local WDB
+	-- Totul este deja in SavedVariables sau in WDB-ul local
 	if table.getn(queue) == 0 then
+		self:Print(format("Cached %d / %d recipes", cachedCount, total))
 		return
 	end
 
@@ -231,7 +232,7 @@ function BitesCookBook:StartCacheItems()
 			return
 		end
 
-		-- Only 1 server request
+		-- Trimitem un singur request catre server la acest pas
 		self.Tooltip:ClearLines()
 		self.Tooltip:SetHyperlink("item:" .. entry.itemID .. ":0:0:0")
 
@@ -241,17 +242,18 @@ function BitesCookBook:StartCacheItems()
 			cachedCount = cachedCount + 1
 			table.remove(queue, index)
 		else
-			-- Item still in queue
+		-- Serverul nu a raspuns inca pentru acest item: trecem la urmatorul si il lasam in coada
 			index = index + 1
 		end
 
+		-- Am terminat o trecere prin coada
 		if index > table.getn(queue) then
 			if table.getn(queue) == 0 then
 				self:Print(format("Cached %d / %d recipes", cachedCount, total))
 				self:SetScript("OnUpdate", nil)
 			else
 				index = 1
-				retryWait = 5
+				retryWait = 5 -- asteapta 5 secunde inainte de o noua runda pentru itemele neraspunse
 				self:Print(format("Cached %d / %d recipes (%d pending, retrying in 5s)...", cachedCount, total, table.getn(queue)))
 			end
 		end
