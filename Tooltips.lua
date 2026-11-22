@@ -70,47 +70,41 @@ function BitesCookBook:AddIngredientRecipes(tooltip, itemLink)
 	end
 
 	local recipes = {}
-	-- Cycle through all recipes that use the ingredient to create the tooltip.
 	for _, recipeID in ipairs(self.CraftablesForReagent[itemID]) do
-		if self:IsRecipeInRange(recipeID) then
+		local inRange = self:IsRecipeInRange(recipeID)
+		local craftableName = GetItemInfo(recipeID)
+		if not craftableName then
+			self:Print("FirstHover nil WDB for recipeID " .. tostring(recipeID) .. " (itemID " .. tostring(itemID) .. ")")
+		end
+		if inRange and craftableName then
 			local recipe = self.Recipes[recipeID]
-			local craftableName, _, _, _, _, _, _, _, craftableIcon = GetItemInfo(recipeID)
+			local _, _, _, _, _, _, _, _, craftableIcon = GetItemInfo(recipeID)
+			local craftableColor = self:GetCraftableColor(recipeID)
+			local text = craftableColor .. craftableName .. FONT_COLOR_CODE_CLOSE
 
-			if not craftableName then
-				if self.Tooltip then
-					self.Tooltip:ClearLines()
-					self.Tooltip:SetHyperlink("item:" .. recipeID .. ":0:0:0")
+			if self.Options.ShowCraftableFirstRank then
+				local RankingRange = recipe["Range"]
+				local FirstRangeText = RankingRange[1] > 0 and RankingRange[1] or self.L["Starter"]
+
+				text = text .. self.TextColors["White"] .. " ("
+				text = text .. self.TextColors["Orange"] .. FirstRangeText
+
+				if self.Options.ShowCraftableRankRange then
+					text = text .. " " .. self.TextColors["Yellow"] .. RankingRange[2] .. " " .. self.TextColors["Green"] .. RankingRange[3] .. " " .. self.TextColors["Gray"] .. RankingRange[4]
 				end
-			else
-				local craftableColor = self:GetCraftableColor(recipeID)
-
-				-- Show the recipe icon if the option is enabled.
-				local text = craftableColor .. craftableName .. FONT_COLOR_CODE_CLOSE
-
-				if self.Options.ShowCraftableFirstRank then
-					local RankingRange = recipe["Range"]
-					local FirstRangeText = RankingRange[1] > 0 and RankingRange[1] or self.L["Starter"]
-
-					-- When the first rank is 1, it's a starter recipe.
-					text = text .. self.TextColors["White"] .. " ("
-					text = text .. self.TextColors["Orange"] .. FirstRangeText
-
-					if self.Options.ShowCraftableRankRange then
-						text = text .. " " .. self.TextColors["Yellow"] .. RankingRange[2] .. " " .. self.TextColors["Green"] .. RankingRange[3] .. " " .. self.TextColors["Gray"] .. RankingRange[4]
-					end
-					text = text .. self.TextColors["White"] .. ")"
-				end
-
-				if self.Options.ShowCraftableFaction and recipe["Faction"] then
-					text = text .. self.TextColors["White"] .. " (" .. recipe["Faction"] .. ")"
-				end
-
-				table.insert(recipes, {text = text, icon = craftableIcon, data = recipe})
+				text = text .. self.TextColors["White"] .. ")"
 			end
+
+			if self.Options.ShowCraftableFaction and recipe["Faction"] then
+				text = text .. self.TextColors["White"] .. " (" .. recipe["Faction"] .. ")"
+			end
+
+			table.insert(recipes, {text = text, icon = craftableIcon, data = recipe})
 		end
 	end
 
 	if not recipes[1] then
+		self:Print("FirstHover 0 recipes for itemID " .. tostring(itemID) .. " (skill=" .. tostring(self.CookingSkillRank) .. ")")
 		return
 	end
 
