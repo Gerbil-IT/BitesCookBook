@@ -131,9 +131,7 @@ function BitesCookBook:AddIngredientRecipes(tooltip, itemLink)
 		end
 	end
 
-	if tooltip:IsShown() then
-		tooltip:Show()
-	end
+	tooltip:Show()
 end
 
 
