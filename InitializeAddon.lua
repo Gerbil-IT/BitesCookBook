@@ -150,40 +150,110 @@ function BitesCookBook:SetBuff(recipe)
 	end
 end
 
-function BitesCookBook:StartCacheItems()
+local CACHE_DELAY = 0.35 -- seconds between server interogations
+
+function BitesCookBook:BuildCacheQueue()
+	local queue = {}
+	local cachedCount = 0
 	local total = 0
-	for _ in pairs(BitesCookBook_RecipesClassic) do
+
+	for itemID, recipe in pairs(BitesCookBook_RecipesClassic) do
 		total = total + 1
+		local cachedBuff = BitesCookBook_Cache and BitesCookBook_Cache.Buffs and BitesCookBook_Cache.Buffs[itemID]
+
+		if cachedBuff and cachedBuff.ItemName and self.ItemCache and self.ItemCache[cachedBuff.ItemName] then
+			cachedCount = cachedCount + 1
+		else
+			-- Check WDB for item
+			local itemName, itemLink, itemQuality = GetItemInfo(itemID)
+			if itemName and itemLink and itemQuality then
+				self:StoreCachedRecipe(itemID, recipe, itemName, itemLink, itemQuality)
+				cachedCount = cachedCount + 1
+			else
+				table.insert(queue, { itemID = itemID, recipe = recipe })
+			end
+		end
 	end
 
-	-- no timer needed if cache is active
-	local initialCached = self:CacheItems()
-	if initialCached == total then
+	return queue, cachedCount, total
+end
+
+function BitesCookBook:StoreCachedRecipe(itemID, recipe, itemName, itemLink, itemQuality)
+	local _, _, _, hex = GetItemQualityColor(tonumber(itemQuality))
+	local hyperLink = hex .. "|H" .. itemLink .. "|h[" .. itemName .. "]|h" .. FONT_COLOR_CODE_CLOSE
+
+	self.ItemCache[itemName] = hyperLink
+	self.Tooltip:ClearLines()
+	self.Tooltip:SetHyperlink("item:" .. itemID .. ":0:0:0")
+	self:SetBuff(recipe)
+
+	if BitesCookBook_Cache and BitesCookBook_Cache.Buffs then
+		BitesCookBook_Cache.Buffs[itemID] = {
+			ItemName = itemName,
+			Buff = recipe.Buff,
+			BuffIcon = recipe.BuffIcon,
+		}
+	end
+end
+
+function BitesCookBook:StartCacheItems()
+	local queue, cachedCount, total = self:BuildCacheQueue()
+
+	-- All is already in SavedVariables/ local WDB
+	if table.getn(queue) == 0 then
 		return
 	end
 
-	local last = GetTime()
 	local elapsed = 0
-	local cacheAt = 10
-	local cachingActive = false
+	local index = 1
+	local retryWait = 0
+
+	self:Print(format("Caching %d missing recipes (delay %.2fs)...", table.getn(queue), CACHE_DELAY))
 
 	self:SetScript("OnUpdate", function()
-		local now = GetTime()
-		elapsed = elapsed + now - last
-		last = now
+		local dt = arg1 or 0
 
-		if elapsed > cacheAt and not cachingActive then
-			cachingActive = true
-			local cached = self:CacheItems()
-			self:Print(format("Cached %d / %d recipes", cached, total))
-			if cached < total then
-				cacheAt = elapsed + 10
-				cachingActive = false
-				self:Print("Some recipes were not cached. Trying again in 10 seconds.")
-				return
-			end
+		if retryWait > 0 then
+			retryWait = retryWait - dt
+			return
+		end
 
+		elapsed = elapsed + dt
+		if elapsed < CACHE_DELAY then
+			return
+		end
+		elapsed = 0
+
+		local entry = queue[index]
+		if not entry then
+			self:Print(format("Cached %d / %d recipes", cachedCount, total))
 			self:SetScript("OnUpdate", nil)
+			return
+		end
+
+		-- Only 1 server request
+		self.Tooltip:ClearLines()
+		self.Tooltip:SetHyperlink("item:" .. entry.itemID .. ":0:0:0")
+
+		local itemName, itemLink, itemQuality = GetItemInfo(entry.itemID)
+		if itemName and itemLink and itemQuality then
+			self:StoreCachedRecipe(entry.itemID, entry.recipe, itemName, itemLink, itemQuality)
+			cachedCount = cachedCount + 1
+			table.remove(queue, index)
+		else
+			-- Item still in queue
+			index = index + 1
+		end
+
+		if index > table.getn(queue) then
+			if table.getn(queue) == 0 then
+				self:Print(format("Cached %d / %d recipes", cachedCount, total))
+				self:SetScript("OnUpdate", nil)
+			else
+				index = 1
+				retryWait = 5
+				self:Print(format("Cached %d / %d recipes (%d pending, retrying in 5s)...", cachedCount, total, table.getn(queue)))
+			end
 		end
 	end)
 end
