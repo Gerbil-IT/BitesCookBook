@@ -44,8 +44,27 @@ end
 function BitesCookBook:VARIABLES_LOADED(eventName)
 	eventName = eventName or event
 
-	-- We should cache all the item names by loading the items once.
-	-- This prevent the tooltips from appearing empty when the player first opens them.
+	if not BitesCookBook_Cache then
+		BitesCookBook_Cache = {
+			Items = {},
+			Buffs = {},
+		}
+	end
+
+	self.ItemCache = BitesCookBook_Cache.Items
+
+	-- Restore previously saved
+	for itemID, recipe in pairs(BitesCookBook_RecipesClassic) do
+		local cachedBuff = BitesCookBook_Cache.Buffs[itemID]
+		if cachedBuff then
+			recipe.Buff = cachedBuff.Buff
+			if cachedBuff.BuffIcon then
+				recipe.BuffIcon = cachedBuff.BuffIcon
+			end
+		end
+	end
+
+	-- Start cache only if items missing
 	self:StartCacheItems()
 	self:UnregisterEvent(eventName)
 end
@@ -132,15 +151,21 @@ function BitesCookBook:SetBuff(recipe)
 end
 
 function BitesCookBook:StartCacheItems()
+	local total = 0
+	for _ in pairs(BitesCookBook_RecipesClassic) do
+		total = total + 1
+	end
+
+	-- no timer needed if cache is active
+	local initialCached = self:CacheItems()
+	if initialCached == total then
+		return
+	end
+
 	local last = GetTime()
 	local elapsed = 0
 	local cacheAt = 10
 	local cachingActive = false
-
-	local total = 0
-	for itemID, recipe in pairs(BitesCookBook_RecipesClassic) do
-		total = total + 1
-	end
 
 	self:SetScript("OnUpdate", function()
 		local now = GetTime()
@@ -165,22 +190,33 @@ end
 
 BitesCookBook.ItemCache = {}
 function BitesCookBook:CacheItems()
-	-- We load every item in the recipe and reagent lists to cache their names.
 	local cached = 0
 	for itemID, recipe in pairs(BitesCookBook_RecipesClassic) do
-		self.Tooltip:ClearLines()
-		self.Tooltip:SetHyperlink("item:"..itemID..":0:0:0") -- Queries the server for the item if not found in the WDB cache
+		local cachedBuff = BitesCookBook_Cache.Buffs[itemID]
 
-		local itemName, itemLink, itemQuality = GetItemInfo(itemID) -- Check WDB cache
-		if itemName and itemLink and itemQuality then
-			local _, _, _, hex = GetItemQualityColor(tonumber(itemQuality))
-			local hyperLink = hex.. "|H".. itemLink .."|h["..itemName.."]|h" .. FONT_COLOR_CODE_CLOSE
-			self.ItemCache[itemName] = hyperLink
-			self:SetBuff(recipe)
-
+		if cachedBuff and cachedBuff.ItemName and self.ItemCache[cachedBuff.ItemName] then
 			cached = cached + 1
 		else
-			return cached
+			self.Tooltip:ClearLines()
+			self.Tooltip:SetHyperlink("item:"..itemID..":0:0:0")
+
+			local itemName, itemLink, itemQuality = GetItemInfo(itemID)
+			if itemName and itemLink and itemQuality then
+				local _, _, _, hex = GetItemQualityColor(tonumber(itemQuality))
+				local hyperLink = hex .. "|H" .. itemLink .. "|h[" .. itemName .. "]|h" .. FONT_COLOR_CODE_CLOSE
+
+				self.ItemCache[itemName] = hyperLink
+				self:SetBuff(recipe)
+
+				-- Save
+				BitesCookBook_Cache.Buffs[itemID] = {
+					ItemName = itemName,
+					Buff = recipe.Buff,
+					BuffIcon = recipe.BuffIcon,
+				}
+
+				cached = cached + 1
+			end
 		end
 	end
 

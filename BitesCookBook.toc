@@ -5,6 +5,7 @@
 ## Description: Shows which items are used in cooking and what they are used for.
 ## DefaultState: enabled
 
+## SavedVariables: BitesCookBook_Cache
 ## SavedVariablesPerCharacter: BitesCookBook_SavedVariables
 
 Lists\CookingRecipes.lua
